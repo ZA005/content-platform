@@ -62,25 +62,29 @@ export class SupabaseManagerRepository implements ManagerRepository {
   async create(input: CreateManagerInput): Promise<Manager> {
     const supabase = getSupabaseClient();
 
-    // Use RPC to create manager with auth user atomically
-    const { data, error } = await supabase.rpc("create_manager_with_auth", {
-      p_name: input.name,
-      p_username: input.username,
-      p_password: input.password,
-      p_avatar_url: input.avatarUrl || null,
-      p_email: null,
+    // Call Edge Function to create manager with auth user atomically
+    const { data, error } = await supabase.functions.invoke("admin-manage-user", {
+      body: {
+        action: "create",
+        entity: "manager",
+        name: input.name,
+        username: input.username,
+        password: input.password,
+        avatarUrl: input.avatarUrl || null,
+      },
     });
 
     if (error) throw error;
+    if (data?.error) throw new Error(data.error);
 
     return {
-      id: data.id,
-      name: data.name,
-      username: data.username,
+      id: data.data.id,
+      name: data.data.name,
+      username: data.data.username,
       password: "",
-      avatarUrl: data.avatar_url || "",
-      createdAt: data.created_at,
-      updatedAt: data.updated_at,
+      avatarUrl: data.data.avatarUrl || "",
+      createdAt: data.data.createdAt,
+      updatedAt: data.data.updatedAt,
     };
   }
 

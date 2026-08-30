@@ -67,28 +67,32 @@ export class SupabaseCreatorRepository implements CreatorRepository {
   async create(input: CreateCreatorInput): Promise<Creator> {
     const supabase = getSupabaseClient();
 
-    // Use RPC to create creator with auth user atomically
-    const { data, error } = await supabase.rpc("create_creator_with_auth", {
-      p_name: input.name,
-      p_username: input.username,
-      p_password: input.password,
-      p_brands: input.brands || [],
-      p_avatar_url: input.avatarUrl || null,
-      p_email: null,
+    // Call Edge Function to create creator with auth user atomically
+    const { data, error } = await supabase.functions.invoke("admin-manage-user", {
+      body: {
+        action: "create",
+        entity: "creator",
+        name: input.name,
+        username: input.username,
+        password: input.password,
+        brands: input.brands || [],
+        avatarUrl: input.avatarUrl || null,
+      },
     });
 
     if (error) throw error;
+    if (data?.error) throw new Error(data.error);
 
     return {
-      id: data.id,
-      name: data.name,
-      username: data.username,
+      id: data.data.id,
+      name: data.data.name,
+      username: data.data.username,
       password: "",
-      status: data.status as "active" | "disabled",
-      brands: data.brands || [],
-      avatarUrl: data.avatar_url || "",
-      createdAt: data.created_at,
-      updatedAt: data.updated_at,
+      status: data.data.status as "active" | "disabled",
+      brands: data.data.brands || [],
+      avatarUrl: data.data.avatarUrl || "",
+      createdAt: data.data.createdAt,
+      updatedAt: data.data.updatedAt,
     };
   }
 
