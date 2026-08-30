@@ -18,6 +18,10 @@ import { localStoragePayoutConfigurationRepository } from "./local-storage-payou
 import { localStorageCompensationRepository } from "./local-storage-compensation-repository";
 import { localStorageWorkScheduleRepository } from "./local-storage-work-schedule-repository";
 import { localStoragePayoutRepository } from "./local-storage-payout-repository";
+import { supabasePayoutConfigurationRepository } from "./supabase-payout-configuration-repository";
+import { supabaseCompensationRepository } from "./supabase-compensation-repository";
+import { supabaseWorkScheduleRepository } from "./supabase-work-schedule-repository";
+import { supabasePayoutRepository } from "./supabase-payout-repository";
 import { supabaseAuthRepository } from "./supabase-auth-repository";
 import { supabaseCreatorRepository } from "./supabase-creator-repository";
 import { supabaseTaskRepository } from "./supabase-task-repository";
@@ -58,19 +62,23 @@ export const repositoryFactory = {
   },
 
   getPayoutConfigurationRepository(): PayoutConfigurationRepository {
-    return localStoragePayoutConfigurationRepository;
+    const mode = getMode();
+    return mode === "supabase" ? supabasePayoutConfigurationRepository : localStoragePayoutConfigurationRepository;
   },
 
   getCompensationRepository(): CompensationRepository {
-    return localStorageCompensationRepository;
+    const mode = getMode();
+    return mode === "supabase" ? supabaseCompensationRepository : localStorageCompensationRepository;
   },
 
   getWorkScheduleRepository(): WorkScheduleRepository {
-    return localStorageWorkScheduleRepository;
+    const mode = getMode();
+    return mode === "supabase" ? supabaseWorkScheduleRepository : localStorageWorkScheduleRepository;
   },
 
   getPayoutRepository(): PayoutRepository {
-    return localStoragePayoutRepository;
+    const mode = getMode();
+    return mode === "supabase" ? supabasePayoutRepository : localStoragePayoutRepository;
   },
 
   getMode,
