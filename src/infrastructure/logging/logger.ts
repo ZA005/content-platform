@@ -72,7 +72,7 @@ class Logger {
       timestamp: new Date().toISOString(),
       level,
       message,
-      ...(data && { data }),
+      ...(data !== undefined && { data }),
     };
 
     this.logs.push(entry);
