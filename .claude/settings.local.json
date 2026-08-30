@@ -6,7 +6,11 @@
       "Bash(echo \"=== TEST 1: Check if API is reachable ===\")",
       "Bash(curl -s -w '\\\\nHTTP Status: %{http_code}\\\\n' -X GET https://oracleapex.com/ords/expplayground/platform/api/creators)",
       "Bash(npm list *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(sleep 3 && tail -20 /tmp/dev-server.log)",
+      "Read(//tmp/**)",
+      "Bash(node \"c:\\\\Users\\\\Z4\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-Z4-Downloads-content-platform\\\\e3d61822-db97-4995-a2b4-2083432cbfba\\\\scratchpad\\\\e2e-test.js\")",
+      "Bash(git commit -m ' *)"
     ]
   }
 }
