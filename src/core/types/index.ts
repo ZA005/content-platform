@@ -58,4 +58,70 @@ export interface TaskWithCreator extends Task {
   creator: Creator | undefined;
 }
 
+export interface PayoutConfiguration {
+  payoutDayOfMonth: number;
+  defaultDayOffMultiplier: number;
+  defaultWorkingDays: number[];
+  roleDefaults: {
+    creator: { baseSalaryCentavos?: number; dayOffMultiplier?: number };
+    manager: { baseSalaryCentavos?: number; dayOffMultiplier?: number };
+  };
+  updatedAt: string;
+}
+
+export interface CompensationProfile {
+  id: string;
+  userId: string;
+  role: Extract<UserRole, "creator" | "manager">;
+  baseSalaryCentavos: number;
+  dayOffMultiplier?: number;
+  effectiveDate: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WorkSchedule {
+  id: string;
+  userId: string;
+  workingDays: number[];
+  customDaysOff: string[];
+  updatedAt: string;
+}
+
+export interface DailyPayout {
+  date: string;
+  userId: string;
+  role: UserRole;
+  deliveredTasks: number;
+  regularTasks: number;
+  dayOffTasks: number;
+  dailyBaseSalaryCentavos: number;
+  regularPayoutCentavos: number;
+  dayOffPayoutCentavos: number;
+  totalPayoutCentavos: number;
+  isDayOff: boolean;
+}
+
+export interface MonthlyPayoutSummary {
+  month: string;
+  userId: string;
+  role: UserRole;
+  deliveredTasks: number;
+  regularTasks: number;
+  dayOffTasks: number;
+  baseSalaryCentavos: number;
+  regularPayoutCentavos: number;
+  dayOffPayoutCentavos: number;
+  totalPayoutCentavos: number;
+  payoutDate: string;
+  finalized: boolean;
+  finalizedAt?: string;
+}
+
+export interface FinalizedPayoutRecord {
+  summary: MonthlyPayoutSummary;
+  dailyBreakdown: DailyPayout[];
+}
+
 export type ID = string;

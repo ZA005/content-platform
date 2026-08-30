@@ -1,4 +1,16 @@
-import type { AuthUser, Creator, ID, Manager, Session, Task } from "@/core/types";
+import type {
+  AuthUser,
+  CompensationProfile,
+  Creator,
+  FinalizedPayoutRecord,
+  ID,
+  Manager,
+  PayoutConfiguration,
+  Session,
+  Task,
+  UserRole,
+  WorkSchedule,
+} from "@/core/types";
 
 /**
  * Contract for authentication persistence. Swap the LocalStorage
@@ -107,4 +119,40 @@ export interface BrandRepository {
 export interface UserRepository {
   list(): Promise<AuthUser[]>;
   getById(id: ID): Promise<AuthUser | null>;
+}
+
+export interface PayoutConfigurationRepository {
+  get(): Promise<PayoutConfiguration>;
+  update(input: Partial<PayoutConfiguration>): Promise<PayoutConfiguration>;
+}
+
+export interface UpsertCompensationInput {
+  baseSalaryCentavos: number;
+  dayOffMultiplier?: number;
+  effectiveDate?: string;
+}
+
+export interface CompensationRepository {
+  list(): Promise<CompensationProfile[]>;
+  getByUserId(userId: ID): Promise<CompensationProfile | null>;
+  upsert(userId: ID, role: Extract<UserRole, "creator" | "manager">, input: UpsertCompensationInput): Promise<CompensationProfile>;
+  delete(id: ID): Promise<void>;
+}
+
+export interface UpsertWorkScheduleInput {
+  workingDays: number[];
+  customDaysOff?: string[];
+}
+
+export interface WorkScheduleRepository {
+  list(): Promise<WorkSchedule[]>;
+  getByUserId(userId: ID): Promise<WorkSchedule | null>;
+  upsert(userId: ID, input: UpsertWorkScheduleInput): Promise<WorkSchedule>;
+}
+
+export interface PayoutRepository {
+  listByMonth(month: string): Promise<FinalizedPayoutRecord[]>;
+  getByUserAndMonth(userId: ID, month: string): Promise<FinalizedPayoutRecord | null>;
+  finalizeMonth(month: string, records: FinalizedPayoutRecord[]): Promise<void>;
+  unfinalizeMonth(month: string): Promise<void>;
 }

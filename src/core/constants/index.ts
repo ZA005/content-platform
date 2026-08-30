@@ -5,6 +5,10 @@ export const STORAGE_KEYS = {
   TASKS: "ccp:tasks",
   MANAGERS: "ccp:managers",
   SEED_VERSION: "ccp:seed-version",
+  PAYOUT_CONFIG: "ccp:payout-config",
+  COMPENSATION: "ccp:compensation",
+  WORK_SCHEDULES: "ccp:work-schedules",
+  PAYOUTS: "ccp:payouts",
 } as const;
 
 /**

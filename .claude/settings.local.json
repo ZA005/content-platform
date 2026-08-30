@@ -19,7 +19,8 @@
       "mcp__claude_ai_Supabase__get_edge_function",
       "mcp__claude_ai_Supabase__deploy_edge_function",
       "mcp__claude_ai_Supabase__query_logs",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(git checkout *)"
     ]
   }
 }

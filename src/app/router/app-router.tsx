@@ -20,6 +20,9 @@ import { ManagerCreatorsPage } from "@/features/manager/pages/manager-creators-p
 import { ManagerSettingsPage } from "@/features/manager/pages/manager-settings-page";
 import { APIDiagnosticPage } from "@/features/diagnostics/pages/api-diagnostic-page";
 import { LoginTestPage } from "@/features/diagnostics/pages/login-test-page";
+import { PayoutCalendarPage } from "@/features/payouts/pages/payout-calendar-page";
+import { PayoutConfigurationPage } from "@/features/payouts/pages/payout-configuration-page";
+import { MyPayoutPage } from "@/features/payouts/pages/my-payout-page";
 import { NotFoundPage } from "./not-found-page";
 import { RootRedirect } from "./root-redirect";
 
@@ -45,6 +48,8 @@ const router = createBrowserRouter([
       { path: "calendar", element: withBoundary(<AdminCalendarPage />) },
       { path: "creators", element: withBoundary(<AdminCreatorsPage />) },
       { path: "notifications", element: withBoundary(<AdminNotificationsPage />) },
+      { path: "payout-calendar", element: withBoundary(<PayoutCalendarPage />) },
+      { path: "payout-configuration", element: withBoundary(<PayoutConfigurationPage />) },
       { path: "settings", element: withBoundary(<AdminSettingsPage />) },
     ],
   },
@@ -60,6 +65,7 @@ const router = createBrowserRouter([
       { path: "tasks", element: withBoundary(<CreatorTasksPage />) },
       { path: "completed", element: withBoundary(<CreatorCompletedPage />) },
       { path: "profile", element: withBoundary(<CreatorProfilePage />) },
+      { path: "my-payout", element: withBoundary(<MyPayoutPage />) },
     ],
   },
   {
@@ -72,6 +78,7 @@ const router = createBrowserRouter([
     children: [
       { index: true, element: withBoundary(<ManagerDashboardPage />) },
       { path: "creators", element: withBoundary(<ManagerCreatorsPage />) },
+      { path: "my-payout", element: withBoundary(<MyPayoutPage />) },
       { path: "settings", element: withBoundary(<ManagerSettingsPage />) },
     ],
   },

@@ -1,9 +1,23 @@
-import type { AuthRepository, BrandRepository, CreatorRepository, ManagerRepository, TaskRepository } from "@/core/interfaces/repositories";
+import type {
+  AuthRepository,
+  BrandRepository,
+  CompensationRepository,
+  CreatorRepository,
+  ManagerRepository,
+  PayoutConfigurationRepository,
+  PayoutRepository,
+  TaskRepository,
+  WorkScheduleRepository,
+} from "@/core/interfaces/repositories";
 import { localStorageAuthRepository } from "./local-storage-auth-repository";
 import { localStorageCreatorRepository } from "./local-storage-creator-repository";
 import { localStorageTaskRepository } from "./local-storage-task-repository";
 import { localStorageManagerRepository } from "./local-storage-manager-repository";
 import { localStorageBrandRepository } from "./local-storage-brand-repository";
+import { localStoragePayoutConfigurationRepository } from "./local-storage-payout-configuration-repository";
+import { localStorageCompensationRepository } from "./local-storage-compensation-repository";
+import { localStorageWorkScheduleRepository } from "./local-storage-work-schedule-repository";
+import { localStoragePayoutRepository } from "./local-storage-payout-repository";
 import { supabaseAuthRepository } from "./supabase-auth-repository";
 import { supabaseCreatorRepository } from "./supabase-creator-repository";
 import { supabaseTaskRepository } from "./supabase-task-repository";
@@ -41,6 +55,22 @@ export const repositoryFactory = {
   getBrandRepository(): BrandRepository {
     const mode = getMode();
     return mode === "supabase" ? supabaseBrandRepository : localStorageBrandRepository;
+  },
+
+  getPayoutConfigurationRepository(): PayoutConfigurationRepository {
+    return localStoragePayoutConfigurationRepository;
+  },
+
+  getCompensationRepository(): CompensationRepository {
+    return localStorageCompensationRepository;
+  },
+
+  getWorkScheduleRepository(): WorkScheduleRepository {
+    return localStorageWorkScheduleRepository;
+  },
+
+  getPayoutRepository(): PayoutRepository {
+    return localStoragePayoutRepository;
   },
 
   getMode,
