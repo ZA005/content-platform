@@ -12,6 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { useBrands } from "../hooks/use-brands";
 import { brandService } from "../services/brand-service";
 
 interface AddBrandDialogProps {
@@ -21,6 +22,7 @@ interface AddBrandDialogProps {
 }
 
 export function AddBrandDialog({ open, onOpenChange, onSuccess }: AddBrandDialogProps) {
+  const { refetch: refetchBrands } = useBrands();
   const [brandName, setBrandName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -37,6 +39,7 @@ export function AddBrandDialog({ open, onOpenChange, onSuccess }: AddBrandDialog
       toast.success(`Brand "${brandName}" added successfully`);
       setBrandName("");
       onOpenChange(false);
+      await refetchBrands();
       onSuccess?.();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to add brand");

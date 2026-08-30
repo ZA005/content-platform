@@ -28,7 +28,7 @@ interface CreatorFormModalProps {
 export function CreatorFormModal({ open, onOpenChange, creator, onSubmit }: CreatorFormModalProps) {
   const isEditing = Boolean(creator);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const { brands: availableBrands } = useBrands();
+  const { brands: availableBrands, refetch: refetchBrands } = useBrands();
 
   const schema = useMemo(
     () =>
@@ -54,6 +54,7 @@ export function CreatorFormModal({ open, onOpenChange, creator, onSubmit }: Crea
   useEffect(() => {
     if (!open) return;
     setSubmitError(null);
+    refetchBrands();
     reset({
       name: creator?.name ?? "",
       username: creator?.username ?? "",
@@ -61,7 +62,7 @@ export function CreatorFormModal({ open, onOpenChange, creator, onSubmit }: Crea
       brands: creator?.brands ?? [],
       avatarUrl: creator?.avatarUrl ?? "",
     });
-  }, [open, creator, reset]);
+  }, [open, creator, reset, refetchBrands]);
 
   const submit = async (values: CreatorFormValues) => {
     setSubmitError(null);
