@@ -62,48 +62,38 @@ export class SupabaseManagerRepository implements ManagerRepository {
   async create(input: CreateManagerInput): Promise<Manager> {
     const supabase = getSupabaseClient();
 
-    const { data: result, error } = await supabase.functions.invoke("admin-manage-user", {
-      body: {
-        action: "create",
-        entity: "manager",
+    const id = crypto.randomUUID();
+    const now = new Date().toISOString();
+
+    // Insert directly into managers table
+    const { data, error } = await supabase
+      .from("managers")
+      .insert({
+        id,
         name: input.name,
-        username: input.username,
-        password: input.password,
-        avatarUrl: input.avatarUrl,
-      },
-    });
+        username: input.username.toLowerCase().trim(),
+        avatar_url: input.avatarUrl || null,
+        created_at: now,
+        updated_at: now,
+      })
+      .select()
+      .single();
 
-    if (error) throw new Error(error.message || "Failed to create manager");
-    if (result?.error) throw new Error(result.error);
-
-    return result.data as Manager;
+    if (error) throw error;
+    return rowToManager(data);
   }
 
   async update(id: ID, input: UpdateManagerInput): Promise<Manager> {
     const supabase = getSupabaseClient();
 
-    // Credential updates (username/password) go through the Edge Function
-    if (input.username || input.password) {
-      const { data: result, error } = await supabase.functions.invoke("admin-manage-user", {
-        body: {
-          action: "updateCredentials",
-          entity: "manager",
-          id,
-          newUsername: input.username,
-          newPassword: input.password,
-        },
-      });
+    const updateData: Record<string, any> = {
+      updated_at: new Date().toISOString(),
+    };
 
-      if (error) throw new Error(error.message || "Failed to update manager");
-      if (result?.error) throw new Error(result.error);
-
-      return result.data as Manager;
-    }
-
-    // Other field updates go directly to the table
-    const updateData: Record<string, any> = {};
     if (input.name !== undefined) updateData.name = input.name;
-    if (input.avatarUrl !== undefined) updateData.avatar_url = input.avatarUrl;
+    if (input.username !== undefined) updateData.username = input.username.toLowerCase().trim();
+    if (input.avatarUrl !== undefined) updateData.avatar_url = input.avatarUrl || null;
+    if (input.password !== undefined) updateData.password = input.password;
 
     const { data, error } = await supabase
       .from("managers")
@@ -119,15 +109,12 @@ export class SupabaseManagerRepository implements ManagerRepository {
   async delete(id: ID): Promise<void> {
     const supabase = getSupabaseClient();
 
-    const { error } = await supabase.functions.invoke("admin-manage-user", {
-      body: {
-        action: "delete",
-        entity: "manager",
-        id,
-      },
-    });
+    const { error } = await supabase
+      .from("managers")
+      .delete()
+      .eq("id", id);
 
-    if (error) throw new Error(error.message || "Failed to delete manager");
+    if (error) throw error;
   }
 }
 

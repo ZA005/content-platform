@@ -67,51 +67,42 @@ export class SupabaseCreatorRepository implements CreatorRepository {
   async create(input: CreateCreatorInput): Promise<Creator> {
     const supabase = getSupabaseClient();
 
-    const { data: result, error } = await supabase.functions.invoke("admin-manage-user", {
-      body: {
-        action: "create",
-        entity: "creator",
+    const id = crypto.randomUUID();
+    const now = new Date().toISOString();
+
+    // Insert directly into creators table
+    const { data, error } = await supabase
+      .from("creators")
+      .insert({
+        id,
         name: input.name,
-        username: input.username,
-        password: input.password,
-        brands: input.brands,
-        avatarUrl: input.avatarUrl,
-      },
-    });
+        username: input.username.toLowerCase().trim(),
+        status: CREATOR_STATUS.ACTIVE,
+        brands: input.brands || [],
+        avatar_url: input.avatarUrl || null,
+        created_at: now,
+        updated_at: now,
+      })
+      .select()
+      .single();
 
-    if (error) throw new Error(error.message || "Failed to create creator");
-    if (result?.error) throw new Error(result.error);
-
-    return result.data as Creator;
+    if (error) throw error;
+    return rowToCreator(data);
   }
 
   async update(id: ID, input: UpdateCreatorInput): Promise<Creator> {
     const supabase = getSupabaseClient();
 
-    // Credential updates (username/password) go through the Edge Function
-    if (input.username || input.password) {
-      const { data: result, error } = await supabase.functions.invoke("admin-manage-user", {
-        body: {
-          action: "updateCredentials",
-          entity: "creator",
-          id,
-          newUsername: input.username,
-          newPassword: input.password,
-        },
-      });
+    const updateData: Record<string, any> = {
+      updated_at: new Date().toISOString(),
+    };
 
-      if (error) throw new Error(error.message || "Failed to update creator");
-      if (result?.error) throw new Error(result.error);
-
-      return result.data as Creator;
-    }
-
-    // Other field updates go directly to the table
-    const updateData: Record<string, any> = {};
     if (input.name !== undefined) updateData.name = input.name;
+    if (input.username !== undefined) updateData.username = input.username.toLowerCase().trim();
+    if (input.password !== undefined) updateData.password = input.password;
     if (input.brands !== undefined) updateData.brands = input.brands;
     if (input.status !== undefined) updateData.status = input.status;
-    if (input.avatarUrl !== undefined) updateData.avatar_url = input.avatarUrl;
+    if (input.avatarUrl !== undefined) updateData.avatar_url = input.avatarUrl || null;
 
     const { data, error } = await supabase
       .from("creators")
@@ -135,15 +126,12 @@ export class SupabaseCreatorRepository implements CreatorRepository {
   async delete(id: ID): Promise<void> {
     const supabase = getSupabaseClient();
 
-    const { error } = await supabase.functions.invoke("admin-manage-user", {
-      body: {
-        action: "delete",
-        entity: "creator",
-        id,
-      },
-    });
+    const { error } = await supabase
+      .from("creators")
+      .delete()
+      .eq("id", id);
 
-    if (error) throw new Error(error.message || "Failed to delete creator");
+    if (error) throw error;
   }
 }
 
