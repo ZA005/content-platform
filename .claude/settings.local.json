@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(npm install *)",
+      "Bash(echo \"=== TEST 1: Check if API is reachable ===\")",
+      "Bash(curl -s -w '\\\\nHTTP Status: %{http_code}\\\\n' -X GET https://oracleapex.com/ords/expplayground/platform/api/creators)"
+    ]
+  }
+}
