@@ -67,27 +67,29 @@ export class SupabaseCreatorRepository implements CreatorRepository {
   async create(input: CreateCreatorInput): Promise<Creator> {
     const supabase = getSupabaseClient();
 
-    const id = crypto.randomUUID();
-    const now = new Date().toISOString();
-
-    // Insert directly into creators table
-    const { data, error } = await supabase
-      .from("creators")
-      .insert({
-        id,
-        name: input.name,
-        username: input.username.toLowerCase().trim(),
-        status: CREATOR_STATUS.ACTIVE,
-        brands: input.brands || [],
-        avatar_url: input.avatarUrl || null,
-        created_at: now,
-        updated_at: now,
-      })
-      .select()
-      .single();
+    // Use RPC to create creator with auth user atomically
+    const { data, error } = await supabase.rpc("create_creator_with_auth", {
+      p_name: input.name,
+      p_username: input.username,
+      p_password: input.password,
+      p_brands: input.brands || [],
+      p_avatar_url: input.avatarUrl || null,
+      p_email: null,
+    });
 
     if (error) throw error;
-    return rowToCreator(data);
+
+    return {
+      id: data.id,
+      name: data.name,
+      username: data.username,
+      password: "",
+      status: data.status as "active" | "disabled",
+      brands: data.brands || [],
+      avatarUrl: data.avatar_url || "",
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
+    };
   }
 
   async update(id: ID, input: UpdateCreatorInput): Promise<Creator> {

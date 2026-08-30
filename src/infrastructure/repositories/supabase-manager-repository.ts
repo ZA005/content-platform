@@ -62,25 +62,26 @@ export class SupabaseManagerRepository implements ManagerRepository {
   async create(input: CreateManagerInput): Promise<Manager> {
     const supabase = getSupabaseClient();
 
-    const id = crypto.randomUUID();
-    const now = new Date().toISOString();
-
-    // Insert directly into managers table
-    const { data, error } = await supabase
-      .from("managers")
-      .insert({
-        id,
-        name: input.name,
-        username: input.username.toLowerCase().trim(),
-        avatar_url: input.avatarUrl || null,
-        created_at: now,
-        updated_at: now,
-      })
-      .select()
-      .single();
+    // Use RPC to create manager with auth user atomically
+    const { data, error } = await supabase.rpc("create_manager_with_auth", {
+      p_name: input.name,
+      p_username: input.username,
+      p_password: input.password,
+      p_avatar_url: input.avatarUrl || null,
+      p_email: null,
+    });
 
     if (error) throw error;
-    return rowToManager(data);
+
+    return {
+      id: data.id,
+      name: data.name,
+      username: data.username,
+      password: "",
+      avatarUrl: data.avatar_url || "",
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
+    };
   }
 
   async update(id: ID, input: UpdateManagerInput): Promise<Manager> {
