@@ -1,22 +1,60 @@
-import { useMemo } from "react";
-import { Users } from "lucide-react";
+import { useMemo, useState } from "react";
+import { MoreHorizontal, Plus, Users } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { EmptyState } from "@/components/shared/empty-state";
 import { LoadingState } from "@/components/shared/loading-state";
 import { CREATOR_STATUS, TASK_STATUS } from "@/core/constants";
+import type { Creator } from "@/core/types";
+import { CreatorFormModal } from "@/features/creators/components/creator-form-modal";
 import { useCreators } from "@/features/creators/hooks/use-creators";
 import { useTasks } from "@/features/tasks/hooks/use-tasks";
+import type { CreatorFormValues } from "@/features/creators/schema";
 
 function initials(name: string) {
   return name.split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase();
 }
 
 export function ManagerCreatorsPage() {
-  const { creators, isLoading: creatorsLoading } = useCreators();
+  const { creators, isLoading: creatorsLoading, createCreator, updateCreator, toggleStatus } = useCreators();
   const { tasks } = useTasks();
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingCreator, setEditingCreator] = useState<Creator | null>(null);
   const isLoading = creatorsLoading;
+
+  const openCreate = () => {
+    setEditingCreator(null);
+    setFormOpen(true);
+  };
+
+  const openEdit = (creator: Creator) => {
+    setEditingCreator(creator);
+    setFormOpen(true);
+  };
+
+  const handleSubmit = async (values: CreatorFormValues) => {
+    const payload = {
+      name: values.name,
+      username: values.username,
+      brands: values.brands,
+      avatarUrl: values.avatarUrl || "",
+      ...(values.password ? { password: values.password } : {}),
+    };
+    if (editingCreator) {
+      await updateCreator(editingCreator.id, payload);
+    } else {
+      await createCreator({ ...payload, password: values.password! });
+    }
+    setFormOpen(false);
+  };
 
   const creatorStats = useMemo(() => {
     const stats = new Map<string, { completed: number; total: number }>();
@@ -37,9 +75,15 @@ export function ManagerCreatorsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-xl font-semibold tracking-tight">Creators</h1>
-        <p className="text-sm text-muted-foreground">Monitor creator progress and assign tasks.</p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="font-display text-xl font-semibold tracking-tight">Creators</h1>
+          <p className="text-sm text-muted-foreground">Monitor creator progress and manage creators.</p>
+        </div>
+        <Button onClick={openCreate}>
+          <Plus className="size-4" />
+          Add Creator
+        </Button>
       </div>
 
       {isLoading ? (
@@ -48,7 +92,13 @@ export function ManagerCreatorsPage() {
         <EmptyState
           icon={Users}
           title="No creators yet"
-          description="Contact your admin to create creators in the system."
+          description="Add your first creator to start assigning tasks."
+          action={
+            <Button size="sm" onClick={openCreate}>
+              <Plus className="size-4" />
+              Add Creator
+            </Button>
+          }
         />
       ) : (
         <div className="overflow-hidden rounded-xl border border-border bg-card">
@@ -59,6 +109,7 @@ export function ManagerCreatorsPage() {
                 <TableHead className="hidden sm:table-cell">Brands</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Progress</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -103,6 +154,21 @@ export function ManagerCreatorsPage() {
                         <div className="text-xs text-muted-foreground">{completion}% complete</div>
                       </div>
                     </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9">
+                            <MoreHorizontal className="size-3 sm:size-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openEdit(creator)}>Edit</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => toggleStatus(creator)}>
+                            {creator.status === CREATOR_STATUS.ACTIVE ? "Disable" : "Enable"}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
                   </TableRow>
                 );
               })}
@@ -110,6 +176,13 @@ export function ManagerCreatorsPage() {
           </Table>
         </div>
       )}
+
+      <CreatorFormModal
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        creator={editingCreator}
+        onSubmit={handleSubmit}
+      />
     </div>
   );
 }

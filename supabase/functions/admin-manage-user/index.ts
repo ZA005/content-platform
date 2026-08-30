@@ -33,8 +33,16 @@ async function handleCreate(
   adminClient: any,
   userRole: string,
 ): Promise<AdminManageUserResponse> {
-  if (userRole !== "admin") {
-    return { error: "Only admins can create users" };
+  const role = userRole.toLowerCase();
+
+  // Admins can create managers and creators
+  // Managers can create creators only
+  if (req.entity === "manager" && role !== "admin") {
+    return { error: "Only admins can create manager accounts" };
+  }
+
+  if (role !== "admin" && role !== "manager") {
+    return { error: `Only admins and managers can create users. Your role: ${userRole || "unknown"}` };
   }
 
   if (!req.name || !req.username || !req.password || !req.entity) {
@@ -377,19 +385,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Build client with user's JWT
-    const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY") || "");
-    userClient.auth.setSession({
-      access_token: authHeader.replace("Bearer ", ""),
-      refresh_token: "",
-      token_type: "bearer",
-      expires_in: 3600,
-      expires_at: Math.floor(Date.now() / 1000) + 3600,
-      user: {} as any,
-    });
+    // Build admin client
+    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Verify caller is logged in
-    const { data: userData, error: userError } = await userClient.auth.getUser();
+    // Verify JWT and get user info
+    const token = authHeader.replace("Bearer ", "");
+    const { data: userData, error: userError } = await adminClient.auth.getUser(token);
 
     if (userError || !userData.user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -398,17 +399,28 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Build admin client
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Get caller's role
-    const { data: callerProfile } = await adminClient
+    // Get caller's role from profiles table (using service role, bypasses RLS)
+    const { data: callerProfile, error: profileError } = await adminClient
       .from("profiles")
       .select("role")
       .eq("id", userData.user.id)
       .single();
 
-    const userRole = callerProfile?.role || "";
+    if (profileError) {
+      return new Response(JSON.stringify({ error: `Failed to load profile: ${profileError.message}` }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (!callerProfile) {
+      return new Response(JSON.stringify({ error: "User profile not found" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const userRole = callerProfile.role ? String(callerProfile.role).trim() : "";
 
     const body: AdminManageUserRequest = await req.json();
 

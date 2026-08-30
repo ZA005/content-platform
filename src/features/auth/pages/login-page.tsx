@@ -27,7 +27,10 @@ export function LoginPage() {
   });
 
   if (!isLoading && user) {
-    const dest = user.role === USER_ROLE.ADMIN ? "/admin" : "/creator";
+    const dest =
+      user.role === USER_ROLE.ADMIN ? "/admin" :
+      user.role === USER_ROLE.MANAGER ? "/manager" :
+      "/creator";
     return <Navigate to={dest} replace />;
   }
 
@@ -37,7 +40,9 @@ export function LoginPage() {
       const loggedInUser = await login(values.username, values.password);
       const redirectTo =
         (location.state as { from?: string } | null)?.from ??
-        (loggedInUser.role === USER_ROLE.ADMIN ? "/admin" : "/creator");
+        (loggedInUser.role === USER_ROLE.ADMIN ? "/admin" :
+         loggedInUser.role === USER_ROLE.MANAGER ? "/manager" :
+         "/creator");
       navigate(redirectTo, { replace: true });
     } catch (error) {
       setFormError(error instanceof Error ? error.message : "Unable to sign in.");

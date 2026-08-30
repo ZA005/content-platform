@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { CalendarX2 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -9,9 +9,7 @@ import { LoadingState } from "@/components/shared/loading-state";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { TaskFormModal } from "../../tasks/components/task-form-modal";
 import type { TaskFormValues } from "../../tasks/schema";
-import { CREATOR_STATUS, STORAGE_KEYS, TASK_STATUS } from "@/core/constants";
-import type { Creator, Task } from "@/core/types";
-import { storageService } from "@/infrastructure/storage/storage-service";
+import { CREATOR_STATUS, TASK_STATUS } from "@/core/constants";
 import { useTasks } from "../../tasks/hooks/use-tasks";
 import { useCreators } from "../../creators/hooks/use-creators";
 
@@ -20,19 +18,11 @@ function initials(name: string) {
 }
 
 export function ManagerDashboardPage() {
-  const [creators, setCreators] = useState<Creator[]>([]);
-  const [allTasks, setAllTasks] = useState<Task[]>([]);
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [taskFormOpen, setTaskFormOpen] = useState(false);
-  const { tasks: selectedDateTasks, isLoading, createTask } = useTasks({ date: selectedDate });
-  const { creators: activeCreators } = useCreators();
-
-  useEffect(() => {
-    const creatorsData = storageService.get<Creator[]>(STORAGE_KEYS.CREATORS) ?? [];
-    const tasksData = storageService.get<Task[]>(STORAGE_KEYS.TASKS) ?? [];
-    setCreators(creatorsData);
-    setAllTasks(tasksData);
-  }, []);
+  const { tasks: selectedDateTasks, isLoading: tasksLoading, createTask } = useTasks({ date: selectedDate });
+  const { tasks: allTasks, isLoading: allTasksLoading } = useTasks();
+  const { creators, isLoading: creatorsLoading } = useCreators();
 
   const stats = useMemo(() => {
     const activeCount = creators.filter((c) => c.status === CREATOR_STATUS.ACTIVE).length;
@@ -48,6 +38,8 @@ export function ManagerDashboardPage() {
       completionRate: totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0,
     };
   }, [creators, allTasks]);
+
+  const isLoading = tasksLoading || allTasksLoading || creatorsLoading;
 
   const handleCreateTask = async (values: TaskFormValues) => {
     await createTask({
@@ -170,7 +162,7 @@ export function ManagerDashboardPage() {
       <TaskFormModal
         open={taskFormOpen}
         onOpenChange={setTaskFormOpen}
-        creators={activeCreators}
+        creators={creators}
         defaultDate={selectedDate}
         onSubmit={handleCreateTask}
       />
