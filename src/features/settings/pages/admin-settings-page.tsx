@@ -15,14 +15,13 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
-import { APP_NAME, STORAGE_KEYS } from "@/core/constants";
+import { STORAGE_KEYS } from "@/core/constants";
 import { useAuth } from "@/features/auth/hooks/use-auth";
 import type { Creator, Manager } from "@/core/types";
 import { ManagerFormModal } from "@/features/managers/components/manager-form-modal";
 import { useManagers } from "@/features/managers/hooks/use-managers";
 import type { ManagerFormValues } from "@/features/managers/components/manager-form-modal";
 import { exportToExcel, importFromExcel, saveImportedData } from "@/features/admin/utils/excel-utils";
-import { runSeedIfNeeded } from "@/infrastructure/mock-data/seed-runner";
 import { storageService } from "@/infrastructure/storage/storage-service";
 
 function initials(name: string) {
@@ -35,7 +34,6 @@ export function AdminSettingsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [notifyOnAssign, setNotifyOnAssign] = useState(true);
   const [notifyOnComplete, setNotifyOnComplete] = useState(true);
-  const [resetOpen, setResetOpen] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -79,15 +77,6 @@ export function AdminSettingsPage() {
     setConfirmPassword("");
     setIsChangingPassword(false);
     toast.success("Password has been changed successfully");
-  };
-
-  const handleResetData = () => {
-    storageService.remove(STORAGE_KEYS.CREATORS);
-    storageService.remove(STORAGE_KEYS.TASKS);
-    storageService.remove(STORAGE_KEYS.SEED_VERSION);
-    runSeedIfNeeded();
-    toast.success("Mock data has been reset to defaults");
-    setTimeout(() => window.location.reload(), 600);
   };
 
   const handleOpenCreateManager = () => {
@@ -345,29 +334,6 @@ export function AdminSettingsPage() {
           </div>
         </CardContent>
       </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Reset Data</CardTitle>
-          <CardDescription>
-            {APP_NAME} currently stores everything in your browser's local storage as a temporary backend.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button variant="destructive" size="sm" onClick={() => setResetOpen(true)}>
-            Reset mock data
-          </Button>
-        </CardContent>
-      </Card>
-
-      <ConfirmDialog
-        open={resetOpen}
-        onOpenChange={setResetOpen}
-        title="Reset all mock data?"
-        description="This clears all creators and tasks stored locally and reseeds the demo dataset. This can't be undone."
-        confirmLabel="Reset data"
-        onConfirm={handleResetData}
-      />
 
       <ManagerFormModal
         open={managerFormOpen}
