@@ -65,7 +65,8 @@ export class PayoutConfigurationService {
           ? config.roleDefaults.manager
           : undefined;
 
-    return resolveCompensation(profile, roleDefault, config.defaultDayOffMultiplier);
+    const resolved = resolveCompensation(profile, roleDefault, config.defaultDayOffMultiplier);
+    return resolved;
   }
 
   async resolveWorkScheduleForUser(userId: string): Promise<WorkSchedule | null> {

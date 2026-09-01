@@ -94,6 +94,20 @@ export class SupabaseTaskRepository implements TaskRepository {
     return (data || []).map((row) => deriveDisplayStatus(rowToTask(row)));
   }
 
+  async listByCreatorAndDateRange(creatorId: string, startDate: string, endDate: string): Promise<Task[]> {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from("tasks")
+      .select("*")
+      .eq("creator_id", creatorId)
+      .gte("scheduled_date", startDate)
+      .lte("scheduled_date", endDate)
+      .order("scheduled_date", { ascending: true });
+
+    if (error) throw error;
+    return (data || []).map((row) => deriveDisplayStatus(rowToTask(row)));
+  }
+
   async create(input: CreateTaskInput): Promise<Task> {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase

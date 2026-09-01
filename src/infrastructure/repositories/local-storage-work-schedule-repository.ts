@@ -52,6 +52,12 @@ export class LocalStorageWorkScheduleRepository implements WorkScheduleRepositor
     writeAll(schedules);
     return newSchedule;
   }
+
+  async delete(scheduleId: ID): Promise<void> {
+    const schedules = readAll();
+    const filtered = schedules.filter((s) => s.id !== scheduleId);
+    writeAll(filtered);
+  }
 }
 
 export const localStorageWorkScheduleRepository = new LocalStorageWorkScheduleRepository();

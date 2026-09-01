@@ -1,17 +1,17 @@
-export function pesosToCentavos(pesos: number): number {
-  return Math.round(pesos * 100);
+export function dollarsToCents(dollars: number): number {
+  return Math.round(dollars * 100);
 }
 
-export function centavosToPesos(centavos: number): number {
-  return centavos / 100;
+export function centsToDollars(cents: number): number {
+  return cents / 100;
 }
 
-export function formatCurrency(centavos: number): string {
-  const pesos = centavosToPesos(centavos);
-  return new Intl.NumberFormat("en-PH", {
+export function formatCurrency(cents: number): string {
+  const dollars = centsToDollars(cents);
+  return new Intl.NumberFormat("en-US", {
     style: "currency",
-    currency: "PHP",
+    currency: "USD",
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(pesos);
+  }).format(dollars);
 }

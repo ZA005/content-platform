@@ -38,13 +38,9 @@ export class SupabaseWorkScheduleRepository implements WorkScheduleRepository {
       .from("work_schedules")
       .select("*")
       .eq("user_id", userId)
-      .single();
+      .maybeSingle();
 
-    if (error) {
-      if (error.code === "PGRST116") return null;
-      throw error;
-    }
-
+    if (error) throw error;
     return data ? rowToWorkSchedule(data) : null;
   }
 
@@ -65,10 +61,21 @@ export class SupabaseWorkScheduleRepository implements WorkScheduleRepository {
         { onConflict: "user_id" }
       )
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
+    if (!data) throw new Error("Failed to upsert work schedule");
     return rowToWorkSchedule(data);
+  }
+
+  async delete(scheduleId: ID): Promise<void> {
+    const supabase = getSupabaseClient();
+    const { error } = await supabase
+      .from("work_schedules")
+      .delete()
+      .eq("id", scheduleId);
+
+    if (error) throw error;
   }
 }
 

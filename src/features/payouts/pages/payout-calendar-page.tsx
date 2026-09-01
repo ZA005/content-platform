@@ -5,10 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PayoutSummaryCards } from "@/features/payouts/components/payout-summary-cards";
 import { PayoutMonthCalendar } from "@/features/payouts/components/payout-month-calendar";
-import { PayoutBreakdownCard } from "@/features/payouts/components/payout-breakdown-card";
-import { payoutCalculationService } from "@/features/payouts/services/payout-calculation-service";
+import { usePayoutsByMonth } from "@/features/payouts/hooks/use-payouts-by-month";
 import { Settings, ChevronLeft, ChevronRight } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 
 export function PayoutCalendarPage() {
   const navigate = useNavigate();
@@ -17,28 +16,11 @@ export function PayoutCalendarPage() {
     return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
   });
 
-  const [payouts, setPayouts] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const { payouts, isLoading } = usePayoutsByMonth(month);
 
-  const loadPayouts = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const monthPayouts = await payoutCalculationService.calculateMonthlyPayouts(month);
-      setPayouts(monthPayouts);
-    } catch (err) {
-      console.error("Failed to load payouts:", err);
-      setPayouts([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [month]);
-
-  useEffect(() => {
-    loadPayouts();
-  }, [loadPayouts]);
-
-  const monthDate = new Date(`${month}-01`);
+  const [year, monthStr] = month.split("-");
+  const monthDate = new Date(parseInt(year), parseInt(monthStr) - 1, 1);
   const monthName = monthDate.toLocaleDateString("en-US", { year: "numeric", month: "long" });
 
   const previousMonth = () => {
@@ -135,13 +117,36 @@ export function PayoutCalendarPage() {
               <DialogTitle>
                 {monthName.split(" ")[0]} {selectedDay}, {monthDate.getFullYear()}
               </DialogTitle>
-              <DialogDescription>Payout details for this day</DialogDescription>
+              <DialogDescription>Daily payout details for creators</DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4 max-h-96 overflow-y-auto">
-              {payouts.map((payout) => (
-                <PayoutBreakdownCard key={payout.userId} payout={payout} />
-              ))}
+              {payouts
+                .filter((p) => parseInt((p.date || p.payoutDate).split("-")[2]) === selectedDay)
+                .map((payout) => (
+                  <div
+                    key={`${payout.creatorId || payout.userId}-${payout.date}`}
+                    className="p-3 border border-neutral-800 rounded"
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <p className="font-medium text-sm">{payout.creatorName || "Unknown"}</p>
+                        <p className="text-xs text-neutral-400">
+                          {payout.deliveredTasks} task{payout.deliveredTasks !== 1 ? "s" : ""}
+                        </p>
+                      </div>
+                      <p className="font-semibold text-emerald-400">
+                        ${((payout.totalPayoutCentavos || 0) / 100).toFixed(2)}
+                      </p>
+                    </div>
+                    <div className="text-xs text-neutral-500 space-y-1">
+                      <p>Regular: {payout.regularTasks || 0} • Day-off: {payout.dayOffTasks || 0}</p>
+                      <p>
+                        Daily Rate: ${((payout.dailyBaseSalaryCentavos || 0) / 100).toFixed(2)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
             </div>
           </DialogContent>
         </Dialog>

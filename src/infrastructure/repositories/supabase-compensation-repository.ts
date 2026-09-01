@@ -48,13 +48,16 @@ export class SupabaseCompensationRepository implements CompensationRepository {
       .select("*")
       .eq("user_id", userId)
       .eq("active", true)
-      .single();
+      .maybeSingle();
 
-    if (error) {
-      if (error.code === "PGRST116") return null;
-      throw error;
-    }
+    console.log("🔍 DEBUG SupabaseCompensationRepository.getByUserId:", {
+      userId,
+      dataFound: !!data,
+      error: error?.message,
+      data: data ? { user_id: data.user_id, base_salary_centavos: data.base_salary_centavos } : null,
+    });
 
+    if (error) throw error;
     return data ? rowToCompensationProfile(data) : null;
   }
 
@@ -83,9 +86,10 @@ export class SupabaseCompensationRepository implements CompensationRepository {
         { onConflict: "user_id" }
       )
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
+    if (!data) throw new Error("Failed to upsert compensation profile");
     return rowToCompensationProfile(data);
   }
 

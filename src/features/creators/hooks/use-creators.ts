@@ -1,70 +1,62 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { CreateCreatorInput, UpdateCreatorInput } from "@/core/interfaces/repositories";
 import type { Creator, ID } from "@/core/types";
 import { creatorService } from "../services/creator-service";
+import { creatorKeys } from "./query-keys";
 
 export function useCreators() {
-  const [creators, setCreators] = useState<Creator[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  const refetch = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      setCreators(await creatorService.list());
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load creators.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const { data: creators = [], isLoading, error, refetch } = useQuery({
+    queryKey: creatorKeys.list(),
+    queryFn: () => creatorService.list(),
+  });
 
-  useEffect(() => {
-    refetch();
-  }, [refetch]);
-
-  const createCreator = useCallback(
-    async (input: CreateCreatorInput) => {
-      await creatorService.create(input);
+  const createCreatorMutation = useMutation({
+    mutationFn: (input: CreateCreatorInput) => creatorService.create(input),
+    onSuccess: () => {
       toast.success("Creator added");
-      await refetch();
+      queryClient.invalidateQueries({ queryKey: creatorKeys.all });
     },
-    [refetch],
-  );
+  });
 
-  const updateCreator = useCallback(
-    async (id: ID, input: UpdateCreatorInput) => {
-      await creatorService.update(id, input);
+  const updateCreatorMutation = useMutation({
+    mutationFn: ({ id, input }: { id: ID; input: UpdateCreatorInput }) => creatorService.update(id, input),
+    onSuccess: () => {
       toast.success("Creator updated");
-      await refetch();
+      queryClient.invalidateQueries({ queryKey: creatorKeys.all });
     },
-    [refetch],
-  );
+  });
 
-  const toggleStatus = useCallback(
-    async (creator: Creator) => {
+  const toggleStatusMutation = useMutation({
+    mutationFn: async (creator: Creator) => {
       if (creator.status === "active") {
         await creatorService.disable(creator.id);
-        toast.success(`${creator.name} disabled`);
       } else {
         await creatorService.enable(creator.id);
-        toast.success(`${creator.name} enabled`);
       }
-      await refetch();
+      return creator;
     },
-    [refetch],
-  );
+    onSuccess: (creator) => {
+      toast.success(`${creator.name} ${creator.status === "active" ? "disabled" : "enabled"}`);
+      queryClient.invalidateQueries({ queryKey: creatorKeys.all });
+    },
+  });
 
-  const deleteCreator = useCallback(
-    async (id: ID) => {
-      await creatorService.delete(id);
+  const deleteCreatorMutation = useMutation({
+    mutationFn: (id: ID) => creatorService.delete(id),
+    onSuccess: () => {
       toast.success("Creator removed");
-      await refetch();
+      queryClient.invalidateQueries({ queryKey: creatorKeys.all });
     },
-    [refetch],
-  );
+  });
 
-  return { creators, isLoading, error, refetch, createCreator, updateCreator, toggleStatus, deleteCreator };
+  const createCreator = useCallback((input: CreateCreatorInput) => createCreatorMutation.mutateAsync(input), [createCreatorMutation]);
+  const updateCreator = useCallback((id: ID, input: UpdateCreatorInput) => updateCreatorMutation.mutateAsync({ id, input }), [updateCreatorMutation]);
+  const toggleStatus = useCallback((creator: Creator) => toggleStatusMutation.mutateAsync(creator), [toggleStatusMutation]);
+  const deleteCreator = useCallback((id: ID) => deleteCreatorMutation.mutateAsync(id), [deleteCreatorMutation]);
+
+  return { creators, isLoading, error: error?.message ?? null, refetch, createCreator, updateCreator, toggleStatus, deleteCreator };
 }

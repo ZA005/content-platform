@@ -38,13 +38,9 @@ export class SupabasePayoutRepository implements PayoutRepository {
       .select("*")
       .eq("user_id", userId)
       .eq("month", month)
-      .single();
+      .maybeSingle();
 
-    if (error) {
-      if (error.code === "PGRST116") return null;
-      throw error;
-    }
-
+    if (error) throw error;
     return data ? rowToFinalizedPayoutRecord(data) : null;
   }
 

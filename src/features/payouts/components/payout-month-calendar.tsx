@@ -3,25 +3,30 @@ import { Card } from "@/components/ui/card";
 import type { MonthlyPayoutSummary } from "@/core/types";
 import { formatCurrency } from "@/lib/currency";
 
+interface PayoutWithDate extends MonthlyPayoutSummary {
+  date?: string;
+}
+
 interface PayoutMonthCalendarProps {
   month: string;
-  payouts: MonthlyPayoutSummary[];
+  payouts: PayoutWithDate[];
   onDayClick: (day: number) => void;
 }
 
 export function PayoutMonthCalendar({ month, payouts, onDayClick }: PayoutMonthCalendarProps) {
   const [year, monthStr] = month.split("-");
-  const startDate = startOfMonth(new Date(`${year}-${monthStr}-01`));
+  const startDate = startOfMonth(new Date(parseInt(year), parseInt(monthStr) - 1, 1));
   const endDate = endOfMonth(startDate);
   const days = eachDayOfInterval({ start: startDate, end: endDate });
 
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const firstDayOfWeek = getDay(startDate);
 
-  // Calculate total payout for each day
-  const payoutByDay: Record<number, MonthlyPayoutSummary[]> = {};
+  // Calculate total payout for each day (by work date)
+  const payoutByDay: Record<number, any[]> = {};
   payouts.forEach((payout) => {
-    const day = new Date(payout.month + "-01").getDate();
+    // Extract day from work date (date field for daily payouts)
+    const day = parseInt((payout.date || payout.payoutDate).split("-")[2]);
     if (!payoutByDay[day]) payoutByDay[day] = [];
     payoutByDay[day].push(payout);
   });

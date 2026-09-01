@@ -78,6 +78,7 @@ export interface TaskRepository {
   getById(id: ID): Promise<Task | null>;
   listByDate(date: string): Promise<Task[]>;
   listByCreator(creatorId: string): Promise<Task[]>;
+  listByCreatorAndDateRange(creatorId: string, startDate: string, endDate: string): Promise<Task[]>;
   create(input: CreateTaskInput): Promise<Task>;
   update(id: ID, input: UpdateTaskInput): Promise<Task>;
   delete(id: ID): Promise<void>;
@@ -148,6 +149,7 @@ export interface WorkScheduleRepository {
   list(): Promise<WorkSchedule[]>;
   getByUserId(userId: ID): Promise<WorkSchedule | null>;
   upsert(userId: ID, input: UpsertWorkScheduleInput): Promise<WorkSchedule>;
+  delete(scheduleId: ID): Promise<void>;
 }
 
 export interface PayoutRepository {

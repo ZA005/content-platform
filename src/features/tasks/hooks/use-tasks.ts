@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { CreateTaskInput, UpdateTaskInput } from "@/core/interfaces/repositories";
 import type { ID, TaskWithCreator } from "@/core/types";
 import { taskService } from "../services/task-service";
+import { taskKeys } from "./query-keys";
 
 interface UseTasksOptions {
   date?: string;
@@ -11,14 +13,11 @@ interface UseTasksOptions {
 
 export function useTasks(options: UseTasksOptions = {}) {
   const { date, creatorId } = options;
-  const [tasks, setTasks] = useState<TaskWithCreator[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  const refetch = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
+  const { data: tasks = [], isLoading, error, refetch } = useQuery({
+    queryKey: taskKeys.list(options),
+    queryFn: async () => {
       let result: TaskWithCreator[];
       if (date && creatorId) {
         result = (await taskService.listByCreator(creatorId)).filter((t) => t.scheduledDate === date);
@@ -29,44 +28,45 @@ export function useTasks(options: UseTasksOptions = {}) {
       } else {
         result = await taskService.listAll();
       }
-      setTasks(result);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load tasks.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [date, creatorId]);
+      return result;
+    },
+  });
 
-  useEffect(() => {
-    refetch();
-  }, [refetch]);
-
-  const createTask = useCallback(
-    async (input: CreateTaskInput) => {
-      await taskService.create(input);
+  const createTaskMutation = useMutation({
+    mutationFn: (input: CreateTaskInput) => taskService.create(input),
+    onSuccess: () => {
       toast.success("Task assigned");
-      await refetch();
+      queryClient.invalidateQueries({ queryKey: taskKeys.all });
     },
-    [refetch],
-  );
+  });
 
-  const updateTask = useCallback(
-    async (id: ID, input: UpdateTaskInput) => {
-      await taskService.update(id, input);
+  const updateTaskMutation = useMutation({
+    mutationFn: ({ id, input }: { id: ID; input: UpdateTaskInput }) => taskService.update(id, input),
+    onSuccess: () => {
       toast.success("Task updated");
-      await refetch();
+      queryClient.invalidateQueries({ queryKey: taskKeys.all });
     },
-    [refetch],
-  );
+  });
 
-  const deleteTask = useCallback(
-    async (id: ID) => {
-      await taskService.delete(id);
+  const deleteTaskMutation = useMutation({
+    mutationFn: (id: ID) => taskService.delete(id),
+    onSuccess: () => {
       toast.success("Task deleted");
-      await refetch();
+      queryClient.invalidateQueries({ queryKey: taskKeys.all });
     },
-    [refetch],
-  );
+  });
 
-  return { tasks, isLoading, error, refetch, createTask, updateTask, deleteTask };
+  const createTask = useCallback((input: CreateTaskInput) => createTaskMutation.mutateAsync(input), [createTaskMutation]);
+  const updateTask = useCallback((id: ID, input: UpdateTaskInput) => updateTaskMutation.mutateAsync({ id, input }), [updateTaskMutation]);
+  const deleteTask = useCallback((id: ID) => deleteTaskMutation.mutateAsync(id), [deleteTaskMutation]);
+
+  return {
+    tasks,
+    isLoading,
+    error: error?.message ?? null,
+    refetch,
+    createTask,
+    updateTask,
+    deleteTask,
+  };
 }

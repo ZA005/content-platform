@@ -1,36 +1,33 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { CompensationProfile, Creator, ID, Manager } from "@/core/types";
 import { payoutConfigurationService } from "@/features/payouts/services/payout-configuration-service";
 import { repositoryFactory } from "@/infrastructure/repositories/repository-factory";
 import { toast } from "sonner";
+import { compensationKeys } from "./query-keys";
 
 interface CompensationWithUser extends CompensationProfile {
   userName?: string;
 }
 
+interface CompensationDataResponse {
+  compensations: CompensationWithUser[];
+  creators: Creator[];
+  managers: Manager[];
+}
+
 export function useCompensation() {
-  const [compensations, setCompensations] = useState<CompensationWithUser[]>([]);
-  const [creators, setCreators] = useState<Creator[]>([]);
-  const [managers, setManagers] = useState<Manager[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
+  const queryClient = useQueryClient();
 
-  const loadData = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
+  const { data = { compensations: [], creators: [], managers: [] }, isLoading, error, refetch } = useQuery({
+    queryKey: compensationKeys.list(),
+    queryFn: async (): Promise<CompensationDataResponse> => {
       const [comps, creatorsData, managersData] = await Promise.all([
         payoutConfigurationService.listCompensation(),
         repositoryFactory.getCreatorRepository().list(),
         repositoryFactory.getManagerRepository().list(),
       ]);
 
-      setCreators(creatorsData);
-      setManagers(managersData);
-
-      // Enrich compensations with user names
       const enriched = comps.map((comp: CompensationProfile) => {
         const creator = creatorsData.find((c: Creator) => c.id === comp.userId);
         const manager = managersData.find((m: Manager) => m.id === comp.userId);
@@ -40,50 +37,64 @@ export function useCompensation() {
         };
       });
 
-      setCompensations(enriched);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to load compensation data";
-      setError(message);
-      toast.error(message);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+      return { compensations: enriched, creators: creatorsData, managers: managersData };
+    },
+  });
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  const { compensations, creators, managers } = data;
+
+  const updateCompensationMutation = useMutation({
+    mutationFn: async (input: { userId: ID; baseSalaryDollars: number; dayOffMultiplier?: number }) => {
+      const creator = creators.find((c: Creator) => c.id === input.userId);
+      const manager = managers.find((m: Manager) => m.id === input.userId);
+      const role = creator ? ("creator" as const) : manager ? ("manager" as const) : null;
+
+      if (!role) {
+        throw new Error("User not found");
+      }
+
+      const baseSalaryCentavos = Math.round(input.baseSalaryDollars * 100);
+      const compensationRepo = repositoryFactory.getCompensationRepository();
+
+      await compensationRepo.upsert(input.userId, role, {
+        baseSalaryCentavos,
+        dayOffMultiplier: input.dayOffMultiplier,
+      });
+    },
+    onSuccess: () => {
+      toast.success("Compensation updated");
+      queryClient.invalidateQueries({ queryKey: compensationKeys.all });
+    },
+    onError: (err) => {
+      const message = err instanceof Error ? err.message : "Failed to update compensation";
+      toast.error(message);
+    },
+  });
+
+  const deleteCompensationMutation = useMutation({
+    mutationFn: (compensationId: ID) => {
+      const compensationRepo = repositoryFactory.getCompensationRepository();
+      return compensationRepo.delete(compensationId);
+    },
+    onSuccess: () => {
+      toast.success("Compensation profile removed");
+      queryClient.invalidateQueries({ queryKey: compensationKeys.all });
+    },
+    onError: (err) => {
+      const message = err instanceof Error ? err.message : "Failed to remove compensation";
+      toast.error(message);
+    },
+  });
 
   const updateCompensation = useCallback(
-    async (userId: ID, baseSalaryPesos: number, dayOffMultiplier?: number) => {
-      setIsSaving(true);
-      try {
-        const creator = creators.find((c: Creator) => c.id === userId);
-        const manager = managers.find((m: Manager) => m.id === userId);
-        const role = creator ? ("creator" as const) : manager ? ("manager" as const) : null;
+    (userId: ID, baseSalaryDollars: number, dayOffMultiplier?: number) =>
+      updateCompensationMutation.mutateAsync({ userId, baseSalaryDollars, dayOffMultiplier }),
+    [updateCompensationMutation],
+  );
 
-        if (!role) {
-          throw new Error("User not found");
-        }
-
-        const baseSalaryCentavos = Math.round(baseSalaryPesos * 100);
-        const compensationRepo = repositoryFactory.getCompensationRepository();
-
-        await compensationRepo.upsert(userId, role, {
-          baseSalaryCentavos,
-          dayOffMultiplier,
-        });
-
-        await loadData();
-        toast.success("Compensation updated");
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to update compensation";
-        toast.error(message);
-      } finally {
-        setIsSaving(false);
-      }
-    },
-    [creators, managers, loadData]
+  const deleteCompensation = useCallback(
+    (compensationId: ID) => deleteCompensationMutation.mutateAsync(compensationId),
+    [deleteCompensationMutation],
   );
 
   return {
@@ -91,9 +102,10 @@ export function useCompensation() {
     creators,
     managers,
     isLoading,
-    error,
-    isSaving,
+    error: error?.message ?? null,
+    isSaving: updateCompensationMutation.isPending || deleteCompensationMutation.isPending,
     updateCompensation,
-    refetch: loadData,
+    deleteCompensation,
+    refetch,
   };
 }

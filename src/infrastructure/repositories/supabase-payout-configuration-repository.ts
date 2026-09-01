@@ -41,15 +41,9 @@ const DEFAULT_CONFIG: PayoutConfiguration = {
 export class SupabasePayoutConfigurationRepository implements PayoutConfigurationRepository {
   async get(): Promise<PayoutConfiguration> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase.from("payout_configurations").select("*").limit(1).single();
+    const { data, error } = await supabase.from("payout_configurations").select("*").limit(1).maybeSingle();
 
-    if (error) {
-      if (error.code === "PGRST116") {
-        return DEFAULT_CONFIG;
-      }
-      throw error;
-    }
-
+    if (error) throw error;
     return data ? rowToPayoutConfiguration(data) : DEFAULT_CONFIG;
   }
 

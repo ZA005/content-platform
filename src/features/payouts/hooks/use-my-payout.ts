@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import type { MonthlyPayoutSummary } from "@/core/types";
 import { useAuth } from "@/features/auth/hooks/use-auth";
 import { payoutCalculationService } from "@/features/payouts/services/payout-calculation-service";
+import { myPayoutKeys } from "./query-keys";
 
 export function useMyPayout(monthParam?: string) {
   const { user } = useAuth();
@@ -11,37 +13,21 @@ export function useMyPayout(monthParam?: string) {
     return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
   });
 
-  const [currentPayout, setCurrentPayout] = useState<MonthlyPayoutSummary | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: currentPayout = null, isLoading, error } = useQuery({
+    queryKey: myPayoutKeys.month(month),
+    queryFn: async (): Promise<MonthlyPayoutSummary | null> => {
+      if (!user) return null;
 
-  const loadPayout = useCallback(async () => {
-    if (!user) return;
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
       if (user.role === "creator" && user.creatorId) {
-        const payout = await payoutCalculationService.calculateCreatorMonthlyPayout(
-          user.creatorId,
-          month
-        );
-        setCurrentPayout(payout);
+        return await payoutCalculationService.calculateCreatorMonthlyPayout(user.creatorId, month);
       } else if (user.role === "manager") {
-        const payout = await payoutCalculationService.calculateManagerMonthlyPayout(user.id, month);
-        setCurrentPayout(payout);
+        return await payoutCalculationService.calculateManagerMonthlyPayout(user.id, month);
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load payout data");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [user, month]);
 
-  useEffect(() => {
-    loadPayout();
-  }, [loadPayout]);
+      return null;
+    },
+    enabled: !!user,
+  });
 
   const previousMonth = useCallback(() => {
     const [year, monthStr] = month.split("-");
@@ -65,8 +51,9 @@ export function useMyPayout(monthParam?: string) {
 
   const toCurrentMonth = useCallback(() => {
     const today = new Date();
-    setMonth(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`);
+    const currentMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+    setMonth(currentMonth);
   }, []);
 
-  return { month, currentPayout, isLoading, error, previousMonth, nextMonth, toCurrentMonth };
+  return { month, currentPayout, isLoading, error: error?.message ?? null, previousMonth, nextMonth, toCurrentMonth };
 }

@@ -50,6 +50,7 @@ export interface Task {
   referenceLink?: string;
   brand: string;
   status: TaskStatus;
+  isDayOff?: boolean; // Manual override: if true, always treated as day-off work
   createdAt: string;
   updatedAt: string;
 }

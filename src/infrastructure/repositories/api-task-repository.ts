@@ -60,6 +60,19 @@ export class ApiTaskRepository implements TaskRepository {
     }
   }
 
+  async listByCreatorAndDateRange(creatorId: string, startDate: string, endDate: string): Promise<Task[]> {
+    try {
+      const response = await apiClient.get<Task[]>(`/tasks/creator/${creatorId}`, {
+        params: { startDate, endDate },
+      });
+      return response.data
+        .map(deriveDisplayStatus)
+        .sort((a, b) => a.scheduledDate.localeCompare(b.scheduledDate));
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || "Failed to fetch tasks by creator and date range");
+    }
+  }
+
   async create(input: CreateTaskInput): Promise<Task> {
     try {
       const response = await apiClient.post<Task>("/tasks", input);

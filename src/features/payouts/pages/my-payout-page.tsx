@@ -17,9 +17,10 @@ export function MyPayoutPage() {
     return <LoadingState />;
   }
 
-  const monthDate = new Date(`${month}-01`);
+  const [year, monthStr] = month.split("-");
+  const monthDate = new Date(parseInt(year), parseInt(monthStr) - 1, 1);
   const monthName = monthDate.toLocaleDateString("en-US", { year: "numeric", month: "long" });
-  const currentMonth = new Date().getMonth() === monthDate.getMonth();
+  const currentMonth = new Date().getMonth() === monthDate.getMonth() && new Date().getFullYear() === monthDate.getFullYear();
 
   return (
     <div className="space-y-6 p-6">

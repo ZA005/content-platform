@@ -1,84 +1,56 @@
-import { useCallback, useEffect, useState } from "react";
-import type { PayoutConfiguration } from "@/core/types";
+import { useCallback } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { payoutConfigurationService } from "@/features/payouts/services/payout-configuration-service";
 import { toast } from "sonner";
+import { payoutConfigurationKeys } from "./query-keys";
 
 export function usePayoutConfiguration() {
-  const [config, setConfig] = useState<PayoutConfiguration | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
+  const queryClient = useQueryClient();
 
-  const loadConfig = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
+  const { data: config = null, isLoading, error, refetch } = useQuery({
+    queryKey: payoutConfigurationKeys.detail(),
+    queryFn: () => payoutConfigurationService.getConfiguration(),
+  });
 
-    try {
-      const loaded = await payoutConfigurationService.getConfiguration();
-      setConfig(loaded);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to load payout configuration";
-      setError(message);
-      toast.error(message);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadConfig();
-  }, [loadConfig]);
-
-  const updatePayoutDay = useCallback(
-    async (day: number) => {
-      if (!config) return;
-
-      setIsSaving(true);
-      try {
-        const updated = await payoutConfigurationService.updateConfiguration({
-          payoutDayOfMonth: day,
-        });
-        setConfig(updated);
-        toast.success("Payout day updated");
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to update payout day";
-        toast.error(message);
-      } finally {
-        setIsSaving(false);
-      }
+  const updatePayoutDayMutation = useMutation({
+    mutationFn: (day: number) => payoutConfigurationService.updateConfiguration({ payoutDayOfMonth: day }),
+    onSuccess: () => {
+      toast.success("Payout day updated");
+      queryClient.invalidateQueries({ queryKey: payoutConfigurationKeys.all });
     },
-    [config]
-  );
+    onError: (err) => {
+      const message = err instanceof Error ? err.message : "Failed to update payout day";
+      toast.error(message);
+    },
+  });
+
+  const updateDefaultMultiplierMutation = useMutation({
+    mutationFn: (multiplier: number) =>
+      payoutConfigurationService.updateConfiguration({ defaultDayOffMultiplier: multiplier }),
+    onSuccess: () => {
+      toast.success("Day-off multiplier updated");
+      queryClient.invalidateQueries({ queryKey: payoutConfigurationKeys.all });
+    },
+    onError: (err) => {
+      const message = err instanceof Error ? err.message : "Failed to update day-off multiplier";
+      toast.error(message);
+    },
+  });
+
+  const updatePayoutDay = useCallback((day: number) => updatePayoutDayMutation.mutateAsync(day), [updatePayoutDayMutation]);
 
   const updateDefaultMultiplier = useCallback(
-    async (multiplier: number) => {
-      if (!config) return;
-
-      setIsSaving(true);
-      try {
-        const updated = await payoutConfigurationService.updateConfiguration({
-          defaultDayOffMultiplier: multiplier,
-        });
-        setConfig(updated);
-        toast.success("Day-off multiplier updated");
-      } catch (err) {
-        const message =
-          err instanceof Error ? err.message : "Failed to update day-off multiplier";
-        toast.error(message);
-      } finally {
-        setIsSaving(false);
-      }
-    },
-    [config]
+    (multiplier: number) => updateDefaultMultiplierMutation.mutateAsync(multiplier),
+    [updateDefaultMultiplierMutation],
   );
 
   return {
     config,
     isLoading,
-    error,
-    isSaving,
+    error: error?.message ?? null,
+    isSaving: updatePayoutDayMutation.isPending || updateDefaultMultiplierMutation.isPending,
     updatePayoutDay,
     updateDefaultMultiplier,
-    refetch: loadConfig,
+    refetch,
   };
 }

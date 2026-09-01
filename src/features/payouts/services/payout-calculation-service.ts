@@ -1,4 +1,3 @@
-import { eachDayOfInterval, endOfMonth, getDay, startOfMonth } from "date-fns";
 import type { CreatorRepository, TaskRepository } from "@/core/interfaces/repositories";
 import type { Task } from "@/core/types";
 import { TASK_STATUS, USER_ROLE } from "@/core/constants";
@@ -31,19 +30,12 @@ export class PayoutCalculationService {
     creatorId: string,
     month: string
   ): Promise<Task[]> {
-    const allTasks = await this.#taskRepository.listByCreator(creatorId);
     const [year, monthStr] = month.split("-");
-    const startDate = new Date(`${year}-${monthStr}-01`);
-    const endDate = endOfMonth(startDate);
+    const startDateStr = `${year}-${monthStr}-01`;
+    const endDateStr = `${year}-${monthStr}-31`;
 
-    return allTasks.filter((task) => {
-      const taskDate = new Date(task.scheduledDate);
-      return (
-        task.status === TASK_STATUS.COMPLETED &&
-        taskDate >= startDate &&
-        taskDate <= endDate
-      );
-    });
+    const tasks = await this.#taskRepository.listByCreatorAndDateRange(creatorId, startDateStr, endDateStr);
+    return tasks.filter((task) => task.status === TASK_STATUS.COMPLETED);
   }
 
   async #calculateCreatorDailyPayouts(
@@ -68,7 +60,8 @@ export class PayoutCalculationService {
 
     for (const task of tasks) {
       const date = task.scheduledDate;
-      const isOffDay = isDayOff(date, schedule);
+      // Use manual isDayOff flag if set, otherwise resolve from schedule
+      const isOffDay = task.isDayOff ?? isDayOff(date, schedule);
       const regularTasks = isOffDay ? 0 : 1;
       const dayOffTasks = isOffDay ? 1 : 0;
 
@@ -127,11 +120,18 @@ export class PayoutCalculationService {
 
   #countWorkingDaysInMonth(month: string, workingDays: number[]): number {
     const [year, monthStr] = month.split("-");
-    const startDate = startOfMonth(new Date(`${year}-${monthStr}-01`));
-    const endDate = endOfMonth(startDate);
-    const days = eachDayOfInterval({ start: startDate, end: endDate });
+    const monthNum = parseInt(monthStr);
+    const yearNum = parseInt(year);
+    const daysInMonth = new Date(yearNum, monthNum, 0).getDate();
 
-    return days.filter((d) => workingDays.includes(getDay(d))).length;
+    let count = 0;
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(yearNum, monthNum - 1, day);
+      if (workingDays.includes(date.getDay())) {
+        count++;
+      }
+    }
+    return count;
   }
 
   async calculateManagerMonthlyPayout(
@@ -196,6 +196,78 @@ export class PayoutCalculationService {
     );
 
     return creatorPayouts;
+  }
+
+  async calculateDailyPayoutsByDate(month: string): Promise<Map<string, any[]>> {
+    const creators = await this.#creatorRepository.list();
+    const config = await payoutConfigurationService.getConfiguration();
+    const dailyMap = new Map<string, any[]>();
+
+    for (const creator of creators) {
+      if (creator.status !== "active") continue;
+
+      const tasks = await this.#getCompletedTasksForCreator(creator.id, month);
+      const compensation = await payoutConfigurationService.resolveCompensationForUser(
+        creator.id,
+        USER_ROLE.CREATOR
+      );
+
+      if (!compensation.isConfigured) {
+        continue;
+      }
+
+      const schedule = await payoutConfigurationService.resolveWorkScheduleForUser(creator.id);
+      const dailyBaseSalaryCentavos = Math.round(compensation.baseSalaryCentavos / 30);
+
+      // Group tasks by date
+      const tasksByDate = new Map<string, Task[]>();
+      for (const task of tasks) {
+        if (!tasksByDate.has(task.scheduledDate)) {
+          tasksByDate.set(task.scheduledDate, []);
+        }
+        tasksByDate.get(task.scheduledDate)!.push(task);
+      }
+
+      // Calculate daily payout for each date
+      for (const [date, dateTasks] of tasksByDate) {
+        if (!dailyMap.has(date)) {
+          dailyMap.set(date, []);
+        }
+
+        let regularTasks = 0;
+        let dayOffTasks = 0;
+
+        for (const task of dateTasks) {
+          const isOffDay = task.isDayOff ?? isDayOff(date, schedule);
+          if (isOffDay) {
+            dayOffTasks++;
+          } else {
+            regularTasks++;
+          }
+        }
+
+        const dayOffRateCentavos = Math.round(
+          dailyBaseSalaryCentavos * (compensation.dayOffMultiplier ?? config.defaultDayOffMultiplier)
+        );
+        const regularPayoutCentavos = dailyBaseSalaryCentavos * regularTasks;
+        const dayOffPayoutCentavos = dayOffRateCentavos * dayOffTasks;
+
+        dailyMap.get(date)!.push({
+          date,
+          creatorId: creator.id,
+          creatorName: creator.name,
+          deliveredTasks: dateTasks.length,
+          regularTasks,
+          dayOffTasks,
+          dailyBaseSalaryCentavos,
+          regularPayoutCentavos,
+          dayOffPayoutCentavos,
+          totalPayoutCentavos: regularPayoutCentavos + dayOffPayoutCentavos,
+        });
+      }
+    }
+
+    return dailyMap;
   }
 }
 

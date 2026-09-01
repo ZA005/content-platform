@@ -66,8 +66,7 @@ export function resolveCompensation(
 export function resolvePayoutDate(year: number, month: number, dayOfMonth: number): string {
   const daysInMonth = getDaysInMonth(new Date(year, month - 1, 1));
   const validDay = Math.min(dayOfMonth, daysInMonth);
-  const date = new Date(year, month - 1, validDay);
-  return date.toISOString().split("T")[0];
+  return `${year}-${String(month).padStart(2, "0")}-${String(validDay).padStart(2, "0")}`;
 }
 
 export interface DailyPayoutCalculationInput {
@@ -218,7 +217,7 @@ export function buildExplanationLines(
   return lines;
 }
 
-function formatPayoutAmount(centavos: number): string {
-  const pesos = centavos / 100;
-  return "₱" + pesos.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function formatPayoutAmount(cents: number): string {
+  const dollars = cents / 100;
+  return "$" + dollars.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }

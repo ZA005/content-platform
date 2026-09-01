@@ -55,6 +55,11 @@ export class LocalStorageTaskRepository implements TaskRepository {
     return all.filter((t) => t.creatorId === creatorId);
   }
 
+  async listByCreatorAndDateRange(creatorId: string, startDate: string, endDate: string): Promise<Task[]> {
+    const all = await this.list();
+    return all.filter((t) => t.creatorId === creatorId && t.scheduledDate >= startDate && t.scheduledDate <= endDate);
+  }
+
   async create(input: CreateTaskInput): Promise<Task> {
     const tasks = readAll();
     const now = new Date().toISOString();

@@ -1,45 +1,35 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { brandService } from "../services/brand-service";
+import { brandKeys } from "./query-keys";
 
 export function useBrands() {
-  const [brands, setBrands] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  const refetch = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      setBrands(await brandService.getAll());
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load brands.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const { data: brands = [], isLoading, error, refetch } = useQuery({
+    queryKey: brandKeys.list(),
+    queryFn: () => brandService.getAll(),
+  });
 
-  useEffect(() => {
-    refetch();
-  }, [refetch]);
-
-  const addBrand = useCallback(
-    async (brandName: string) => {
-      await brandService.add(brandName);
+  const addBrandMutation = useMutation({
+    mutationFn: (brandName: string) => brandService.add(brandName),
+    onSuccess: () => {
       toast.success("Brand added");
-      await refetch();
+      queryClient.invalidateQueries({ queryKey: brandKeys.all });
     },
-    [refetch],
-  );
+  });
 
-  const removeBrand = useCallback(
-    async (brandName: string) => {
-      await brandService.remove(brandName);
+  const removeBrandMutation = useMutation({
+    mutationFn: (brandName: string) => brandService.remove(brandName),
+    onSuccess: () => {
       toast.success("Brand removed");
-      await refetch();
+      queryClient.invalidateQueries({ queryKey: brandKeys.all });
     },
-    [refetch],
-  );
+  });
 
-  return { brands, isLoading, error, refetch, addBrand, removeBrand };
+  const addBrand = useCallback((brandName: string) => addBrandMutation.mutateAsync(brandName), [addBrandMutation]);
+  const removeBrand = useCallback((brandName: string) => removeBrandMutation.mutateAsync(brandName), [removeBrandMutation]);
+
+  return { brands, isLoading, error: error?.message ?? null, refetch, addBrand, removeBrand };
 }
