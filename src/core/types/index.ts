@@ -125,4 +125,17 @@ export interface FinalizedPayoutRecord {
   dailyBreakdown: DailyPayout[];
 }
 
+export interface ImportRowError {
+  sheet: "Creators" | "Tasks";
+  row: number;
+  reason: string;
+}
+
+export interface ImportSummary {
+  creators: { created: number; updated: number; skipped: number };
+  tasks: { created: number; updated: number; skipped: number };
+  errors: ImportRowError[];
+  dryRun: boolean;
+}
+
 export type ID = string;

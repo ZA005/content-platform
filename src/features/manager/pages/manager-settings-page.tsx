@@ -4,21 +4,14 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/features/auth/hooks/use-auth";
-import { exportToExcel, importFromExcel, saveImportedData } from "@/features/admin/utils/excel-utils";
+import { importData } from "@/features/admin/services/data-export-import-service";
+import { ExportConfirmDialog } from "@/features/admin/components/export-confirm-dialog";
 
 export function ManagerSettingsPage() {
   const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isImporting, setIsImporting] = useState(false);
-
-  const handleExport = async () => {
-    try {
-      await exportToExcel();
-      toast.success("Data exported successfully");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to export data");
-    }
-  };
+  const [exportConfirmOpen, setExportConfirmOpen] = useState(false);
 
   const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -30,10 +23,17 @@ export function ManagerSettingsPage() {
     }
 
     setIsImporting(true);
-    importFromExcel(file)
-      .then((data) => {
-        saveImportedData(data);
-        toast.success(`Data imported successfully: ${data.creators.length} creators, ${data.tasks.length} tasks`);
+    importData(file)
+      .then((summary) => {
+        const { creators, tasks, errors } = summary;
+        toast.success(
+          `Imported: ${creators.created} creators created, ${creators.updated} updated, ` +
+            `${tasks.created} tasks created, ${tasks.updated} updated` +
+            (errors.length > 0 ? ` — ${errors.length} row(s) skipped, see console` : ""),
+        );
+        if (errors.length > 0) {
+          console.warn("Import row errors:", errors);
+        }
         window.location.reload();
       })
       .catch((error) => {
@@ -82,7 +82,7 @@ export function ManagerSettingsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-col gap-2 sm:flex-row">
-            <Button variant="outline" onClick={handleExport}>
+            <Button variant="outline" onClick={() => setExportConfirmOpen(true)}>
               <Download className="size-4" />
               Export to Excel
             </Button>
@@ -105,6 +105,11 @@ export function ManagerSettingsPage() {
           </p>
         </CardContent>
       </Card>
+
+      <ExportConfirmDialog
+        open={exportConfirmOpen}
+        onOpenChange={setExportConfirmOpen}
+      />
     </div>
   );
 }

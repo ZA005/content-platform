@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { createCreatorUser, synthesizeEmail } from "../_shared/user-management.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -23,10 +24,6 @@ interface AdminManageUserResponse {
   error?: string;
 }
 
-function synthesizeEmail(username: string): string {
-  return `${username.toLowerCase()}@users.contentplatform.internal`;
-}
-
 async function handleCreate(
   req: AdminManageUserRequest,
   supabaseUrl: string,
@@ -49,9 +46,19 @@ async function handleCreate(
     return { error: "Missing required fields: name, username, password, entity" };
   }
 
+  if (req.entity === "creator") {
+    return createCreatorUser(adminClient, {
+      name: req.name,
+      username: req.username,
+      password: req.password,
+      brands: req.brands,
+      avatarUrl: req.avatarUrl,
+    });
+  }
+
+  // Manager creation (no shared helper yet — only one call site)
   const email = synthesizeEmail(req.username);
 
-  // Check username uniqueness
   const { data: existingProfile } = await adminClient
     .from("profiles")
     .select("id")
@@ -63,7 +70,6 @@ async function handleCreate(
   }
 
   try {
-    // Create auth user
     const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
       email,
       password: req.password,
@@ -81,108 +87,49 @@ async function handleCreate(
 
     const userId = authData.user.id;
 
-    // Create creators/managers row
-    let entityId: string | null = null;
+    const { data: managerData, error: managerError } = await adminClient
+      .from("managers")
+      .insert({
+        name: req.name,
+        username: req.username,
+        avatar_url: req.avatarUrl || null,
+      })
+      .select()
+      .single();
 
-    if (req.entity === "creator") {
-      const { data: creatorData, error: creatorError } = await adminClient
-        .from("creators")
-        .insert({
-          name: req.name,
-          username: req.username,
-          status: "active",
-          brands: req.brands || [],
-          avatar_url: req.avatarUrl || null,
-        })
-        .select()
-        .single();
-
-      if (creatorError) {
-        // Cleanup: delete the created auth user
-        await adminClient.auth.admin.deleteUser(userId);
-        return { error: creatorError.message };
-      }
-      entityId = creatorData.id;
-    } else if (req.entity === "manager") {
-      const { data: managerData, error: managerError } = await adminClient
-        .from("managers")
-        .insert({
-          name: req.name,
-          username: req.username,
-          avatar_url: req.avatarUrl || null,
-        })
-        .select()
-        .single();
-
-      if (managerError) {
-        // Cleanup: delete the created auth user
-        await adminClient.auth.admin.deleteUser(userId);
-        return { error: managerError.message };
-      }
-      entityId = managerData.id;
+    if (managerError) {
+      await adminClient.auth.admin.deleteUser(userId);
+      return { error: managerError.message };
     }
 
-    // Create profiles row
-    const profileData = {
+    const entityId = managerData.id;
+
+    const { error: profileError } = await adminClient.from("profiles").insert({
       id: userId,
       role: req.entity,
       name: req.name,
       username: req.username,
-      creator_id: req.entity === "creator" ? entityId : null,
-      manager_id: req.entity === "manager" ? entityId : null,
-    };
-
-    const { error: profileError } = await adminClient.from("profiles").insert(profileData);
+      creator_id: null,
+      manager_id: entityId,
+    });
 
     if (profileError) {
-      // Cleanup: delete the created auth user and entity
       await adminClient.auth.admin.deleteUser(userId);
-      if (req.entity === "creator") {
-        await adminClient.from("creators").delete().eq("id", entityId);
-      } else {
-        await adminClient.from("managers").delete().eq("id", entityId);
-      }
+      await adminClient.from("managers").delete().eq("id", entityId);
       return { error: profileError.message };
     }
 
-    // Return the created entity data
-    if (req.entity === "creator") {
-      const { data: creatorData } = await adminClient
-        .from("creators")
-        .select("*")
-        .eq("id", entityId)
-        .single();
-      return {
-        data: {
-          id: creatorData.id,
-          name: creatorData.name,
-          username: creatorData.username,
-          password: "",
-          status: creatorData.status,
-          brands: creatorData.brands,
-          avatarUrl: creatorData.avatar_url || "",
-          createdAt: creatorData.created_at,
-          updatedAt: creatorData.updated_at,
-        },
-      };
-    } else {
-      const { data: managerData } = await adminClient
-        .from("managers")
-        .select("*")
-        .eq("id", entityId)
-        .single();
-      return {
-        data: {
-          id: managerData.id,
-          name: managerData.name,
-          username: managerData.username,
-          password: "",
-          avatarUrl: managerData.avatar_url || "",
-          createdAt: managerData.created_at,
-          updatedAt: managerData.updated_at,
-        },
-      };
-    }
+    return {
+      data: {
+        id: managerData.id,
+        name: managerData.name,
+        username: managerData.username,
+        password: "",
+        avatarUrl: managerData.avatar_url || "",
+        createdAt: managerData.created_at,
+        updatedAt: managerData.updated_at,
+      },
+    };
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Unknown error" };
   }

@@ -12,8 +12,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { STORAGE_KEYS } from "@/core/constants";
 import { useAuth } from "@/features/auth/hooks/use-auth";
@@ -21,7 +19,8 @@ import type { Creator, Manager } from "@/core/types";
 import { ManagerFormModal } from "@/features/managers/components/manager-form-modal";
 import { useManagers } from "@/features/managers/hooks/use-managers";
 import type { ManagerFormValues } from "@/features/managers/components/manager-form-modal";
-import { exportToExcel, importFromExcel, saveImportedData } from "@/features/admin/utils/excel-utils";
+import { importData } from "@/features/admin/services/data-export-import-service";
+import { ExportConfirmDialog } from "@/features/admin/components/export-confirm-dialog";
 import { storageService } from "@/infrastructure/storage/storage-service";
 
 function initials(name: string) {
@@ -32,8 +31,6 @@ export function AdminSettingsPage() {
   const { user } = useAuth();
   const { managers, createManager, updateManager, deleteManager } = useManagers();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [notifyOnAssign, setNotifyOnAssign] = useState(true);
-  const [notifyOnComplete, setNotifyOnComplete] = useState(true);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -42,6 +39,7 @@ export function AdminSettingsPage() {
   const [editingManager, setEditingManager] = useState<Manager | null>(null);
   const [deletingManager, setDeletingManager] = useState<Manager | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [exportConfirmOpen, setExportConfirmOpen] = useState(false);
 
   const handleChangePassword = () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
@@ -108,15 +106,6 @@ export function AdminSettingsPage() {
     }
   };
 
-  const handleExport = async () => {
-    try {
-      await exportToExcel();
-      toast.success("Data exported successfully");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to export data");
-    }
-  };
-
   const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -127,10 +116,17 @@ export function AdminSettingsPage() {
     }
 
     setIsImporting(true);
-    importFromExcel(file)
-      .then((data) => {
-        saveImportedData(data);
-        toast.success(`Data imported successfully: ${data.creators.length} creators, ${data.tasks.length} tasks`);
+    importData(file)
+      .then((summary) => {
+        const { creators, tasks, errors } = summary;
+        toast.success(
+          `Imported: ${creators.created} creators created, ${creators.updated} updated, ` +
+            `${tasks.created} tasks created, ${tasks.updated} updated` +
+            (errors.length > 0 ? ` — ${errors.length} row(s) skipped, see console` : ""),
+        );
+        if (errors.length > 0) {
+          console.warn("Import row errors:", errors);
+        }
         window.location.reload();
       })
       .catch((error) => {
@@ -231,7 +227,7 @@ export function AdminSettingsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-col gap-2 sm:flex-row">
-            <Button variant="outline" onClick={handleExport}>
+            <Button variant="outline" onClick={() => setExportConfirmOpen(true)}>
               <Download className="size-4" />
               Export to Excel
             </Button>
@@ -313,28 +309,6 @@ export function AdminSettingsPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Notification preferences</CardTitle>
-          <CardDescription>Choose what triggers an alert (UI preview only, for now).</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <Label htmlFor="notify-assign" className="font-normal">
-              Notify me when a task is assigned
-            </Label>
-            <Switch id="notify-assign" checked={notifyOnAssign} onCheckedChange={setNotifyOnAssign} />
-          </div>
-          <Separator />
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <Label htmlFor="notify-complete" className="font-normal">
-              Notify me when a task is completed
-            </Label>
-            <Switch id="notify-complete" checked={notifyOnComplete} onCheckedChange={setNotifyOnComplete} />
-          </div>
-        </CardContent>
-      </Card>
-
       <ManagerFormModal
         open={managerFormOpen}
         onOpenChange={setManagerFormOpen}
@@ -351,6 +325,11 @@ export function AdminSettingsPage() {
         onConfirm={async () => {
           if (deletingManager) await deleteManager(deletingManager.id);
         }}
+      />
+
+      <ExportConfirmDialog
+        open={exportConfirmOpen}
+        onOpenChange={setExportConfirmOpen}
       />
     </div>
   );

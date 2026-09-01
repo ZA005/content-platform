@@ -1,6 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  Bell,
+  // Bell,
   CalendarDays,
   CheckCircle2,
   Clapperboard,
@@ -24,7 +24,7 @@ export const ADMIN_NAV: NavItem[] = [
   { label: "Calendar", href: "/admin/calendar", icon: CalendarDays },
   { label: "Creators", href: "/admin/creators", icon: Users },
   { label: "Payout Calendar", href: "/admin/payout-calendar", icon: DollarSign },
-  { label: "Notifications", href: "/admin/notifications", icon: Bell },
+  // { label: "Notifications", href: "/admin/notifications", icon: Bell },
   { label: "Settings", href: "/admin/settings", icon: Settings },
 ];
 
