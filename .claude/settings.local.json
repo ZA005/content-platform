@@ -20,7 +20,11 @@
       "mcp__claude_ai_Supabase__deploy_edge_function",
       "mcp__claude_ai_Supabase__query_logs",
       "Bash(git push *)",
-      "Bash(git checkout *)"
+      "Bash(git checkout *)",
+      "mcp__claude_ai_Supabase__list_projects",
+      "mcp__claude_ai_Supabase__get_advisors",
+      "Bash(node -e ' *)",
+      "Bash(git commit -m 'Fix: Calculate correct last day of month for payout queries *)"
     ]
   }
 }

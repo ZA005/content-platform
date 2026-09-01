@@ -9,13 +9,14 @@ import { usePayoutsByMonth } from "@/features/payouts/hooks/use-payouts-by-month
 import { Settings, ChevronLeft, ChevronRight } from "lucide-react";
 import { useState } from "react";
 
+function getInitialMonth(): string {
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+}
+
 export function PayoutCalendarPage() {
   const navigate = useNavigate();
-  const [month, setMonth] = useState<string>(() => {
-    const today = new Date();
-    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
-  });
-
+  const [month, setMonth] = useState<string>(getInitialMonth());
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const { payouts, isLoading } = usePayoutsByMonth(month);
 

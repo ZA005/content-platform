@@ -31,8 +31,13 @@ export class PayoutCalculationService {
     month: string
   ): Promise<Task[]> {
     const [year, monthStr] = month.split("-");
+    const yearNum = parseInt(year);
+    const monthNum = parseInt(monthStr);
+
     const startDateStr = `${year}-${monthStr}-01`;
-    const endDateStr = `${year}-${monthStr}-31`;
+    // Calculate the last day of the month
+    const lastDayOfMonth = new Date(yearNum, monthNum, 0).getDate();
+    const endDateStr = `${year}-${monthStr}-${String(lastDayOfMonth).padStart(2, "0")}`;
 
     const tasks = await this.#taskRepository.listByCreatorAndDateRange(creatorId, startDateStr, endDateStr);
     return tasks.filter((task) => task.status === TASK_STATUS.COMPLETED);
